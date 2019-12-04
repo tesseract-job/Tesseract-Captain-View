@@ -50,6 +50,103 @@
         </el-form-item>
       </el-form>
     </el-dialog>
+
+
+    <!-- 右键实体选择框 dialog-->
+    <el-dialog v-el-drag-dialog width="20%" center :visible.sync="contextmenuDialogVisible" title="操作">
+      <el-form ref="entityForm" :inline="false" :model="curEntityInfo" :rules="entityRules">
+        <el-form-item>
+          <el-button type="primary" style="width: 100%" @click="addField">新增属性</el-button>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" style="width: 100%" @click="relationEntity">关联实体</el-button>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" style="width: 100%" @click="addEntityBehavior">新增实体行为</el-button>
+        </el-form-item>
+      </el-form>
+    </el-dialog>
+
+    <!-- 右键关联实体 dialog-->
+    <el-dialog v-el-drag-dialog width="20%" center :visible.sync="contextmenuRelationEntityDialogVisible" title="关联实体">
+      <el-form ref="relationEntityForm" :inline="false" :model="needRelationEntity" :rules="needRelationEntityRules">
+        <el-form-item label="当前实体名" prop="curEntityName">
+          {{curClickNodeData.name}}
+        </el-form-item>
+        <el-form-item label="关联实体" prop="relationEntityName">
+          <el-select v-model="needRelationEntity.relationEntityName" placeholder="关联实体">
+            <el-option v-for="entity in entityList" :label="entity.entityName" :value="entity.entityName"/>
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" style="width: 100%" @click="doRelationEntity">关联</el-button>
+        </el-form-item>
+      </el-form>
+    </el-dialog>
+
+    <!-- 右键增加实体行为 dialog-->
+    <el-dialog v-el-drag-dialog width="50%" center :visible.sync="contextmenuEntityBehaviorDialogVisible" title="实体行为">
+      <el-form ref="entityBehaviorForm" :inline="false" :model="entityBehavior" :rules="entityBehaviorRules"
+               label-width="120px">
+        <el-form-item label="当前实体名:" prop="curEntityName">
+          {{curClickNodeData.name}}
+        </el-form-item>
+        <el-form-item label="行为展示名:" prop="behaviorShowName">
+          <el-input v-model="entityBehavior.behaviorShowName" placeholder="行为展示名"/>
+        </el-form-item>
+        <el-form-item label="行为方法名:" prop="behaviorMethodName">
+          <el-input v-model="entityBehavior.behaviorMethodName" placeholder="行为方法名"/>
+        </el-form-item>
+        <!-- 方法参数列表-->
+        <el-form-item label="方法参数列表:" prop="behaviorMethodName">
+          <el-button type="success" size="mini">添加</el-button>
+          <el-table
+            :data="entityBehavior.argArr"
+            highlight-current-row="true"
+            border
+            style="width: 100%" size="mini">
+            <el-table-column
+              align="center"
+              prop="argName"
+              label="参数名"
+            >
+            </el-table-column>
+            <el-table-column
+              align="center"
+              prop="argType"
+              label="参数类型"
+            >
+            </el-table-column>
+            <el-table-column
+              align="center"
+              prop="argDescription"
+              label="描述">
+            </el-table-column>
+            <el-table-column label="操作" align="center">
+              <template slot-scope="scope">
+                <el-button size="mini" type="primary">编辑</el-button>
+                <el-button size="mini" type="danger">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-form-item>
+
+        <el-form-item label="行为方法返回值类型:" prop="behaviorMethodReturnType">
+          <el-input v-model="entityBehavior.behaviorMethodReturnType" placeholder="行为方法返回值类型"/>
+        </el-form-item>
+        <el-form-item label="行为描述:" prop="behaviorDescription">
+          <el-input v-model="entityBehavior.behaviorDescription" type="textarea"/>
+        </el-form-item>
+        <el-form-item label="行为关联实体:" prop="relationEntityName">
+          <el-select v-model="entityBehavior.relationEntityName" placeholder="关联实体">
+            <el-option v-for="entity in entityList" :label="entity.entityName" :value="entity.entityName"/>
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="doRelationEntity">确定</el-button>
+        </el-form-item>
+      </el-form>
+    </el-dialog>
   </div>
 </template>
 
@@ -59,8 +156,8 @@
   import constant from './constant'
   import echarts from 'echarts'
 
-  let defaultEntitySize = 60
-  let defaultFieldSize = 30
+  let defaultEntitySize = 50
+  let defaultFieldSize = 20
   let chartDatas = [{
     name: 'test1',
     value: 'test1',
@@ -121,8 +218,35 @@
         addFieldDialogVisible: false,
         fieldRules: {},
         curFieldInfo: { fieldName: null, fieldDescription: null, fieldType: 1, entityName: null },
-        fieldTypeList: constant.fieldTypeList
+        fieldTypeList: constant.fieldTypeList,
 
+        //右键操作选择
+        contextmenuDialogVisible: false,
+        curClickNodeData: {},
+
+        //右键关联实体
+        contextmenuRelationEntityDialogVisible: false,
+        needRelationEntity: { relationEntityName: null },
+        needRelationEntityRules: {},
+
+        //右键新增实体行为
+        contextmenuEntityBehaviorDialogVisible: false,
+        //实体行为
+        entityBehavior: {
+          //行为关联实体名字
+          relationEntityName: null,
+          //展示名
+          behaviorShowName: null,
+          //行为方法名
+          behaviorMethodName: null,
+          //行为方法返回值类型
+          behaviorMethodReturnType: null,
+          //参数数组
+          argArr: [{ argName: 'test', argType: 'string', argDescription: 'argDescription' }],
+          //行为描述
+          behaviorDescription: null
+        },
+        entityBehaviorRules: {}
       }
     },
     mounted() {
@@ -133,11 +257,10 @@
         return false
       }
       charts.on('contextmenu', params => {
-        let dataType = params.dataType
         let data = params.data
-        let value = params.value
         //添加实体属性
-        this.addField(data)
+        this.curClickNodeData = data
+        this.contextmenuDialogVisible = true
       })
     },
     methods: {
@@ -151,6 +274,7 @@
         let graphEntity = {
           name: entity.entityName,
           value: entity.entityName,
+          type: 'entity',
           symbolSize: defaultEntitySize,
           draggable: true,
           itemStyle: {
@@ -168,9 +292,21 @@
         charts.setOption(option)
         this.addEntityDialogVisible = false
       },
-      addField(data) {
+      relationEntity() {
+        this.contextmenuRelationEntityDialogVisible = true
+      },
+      doRelationEntity() {
+
+      },
+      addEntityBehavior() {
+        this.contextmenuEntityBehaviorDialogVisible = true
+      },
+      doAddEntityBehavior() {
+
+      },
+      addField() {
         commonUtils.clearObject(this.curFieldInfo)
-        this.curFieldInfo.entityName = data.name
+        this.curFieldInfo.entityName = this.curClickNodeData.name
         this.addFieldDialogVisible = true
       },
       saveField() {
@@ -181,6 +317,7 @@
           value: field.fieldName,
           symbolSize: defaultFieldSize,
           draggable: true,
+          type: 'field',
           itemStyle: {
             color: '#dca12f'
           }
