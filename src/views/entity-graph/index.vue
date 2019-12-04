@@ -11,17 +11,20 @@
     <!-- 添加实体 dialog-->
     <el-dialog v-el-drag-dialog :visible.sync="addEntityDialogVisible" title="实体信息">
       <el-form ref="entityForm" :inline="false" :model="curEntityInfo" :rules="entityRules" label-width="120px">
+        <el-form-item label="实体展示名" prop="entityShowName">
+          <el-input ref="name" v-model="curEntityInfo.entityShowName" placeholder="实体名"/>
+        </el-form-item>
         <el-form-item label="实体名" prop="entityName">
           <el-input ref="name" v-model="curEntityInfo.entityName" placeholder="实体名"/>
         </el-form-item>
         <el-form-item label="实体描述" prop="entityDescription">
           <el-input v-model="curEntityInfo.entityDescription" type="textarea"/>
         </el-form-item>
-        <el-form-item label="关联实体" prop="relationEntity">
-          <el-select v-model="curEntityInfo.relationEntity" placeholder="关联实体">
-            <el-option v-for="entity in entityList" :label="entity.entityName" :value="entity.entityName"/>
-          </el-select>
-        </el-form-item>
+        <!--        <el-form-item label="关联实体" prop="relationEntity">-->
+        <!--          <el-select v-model="curEntityInfo.relationEntityName" placeholder="关联实体">-->
+        <!--            <el-option v-for="entity in entityList" :label="entity.entityName" :value="entity.entityName"/>-->
+        <!--          </el-select>-->
+        <!--        </el-form-item>-->
         <el-form-item>
           <el-button type="primary" @click="saveEntity">保存</el-button>
         </el-form-item>
@@ -33,6 +36,9 @@
       <el-form ref="fieldForm" :inline="false" :model="curFieldInfo" :rules="fieldRules" label-width="120px">
         <el-form-item label="实体名" prop="entityName">
           {{curFieldInfo.entityName}}
+        </el-form-item>
+        <el-form-item label="属性展示名" prop="fieldShowName">
+          <el-input v-model="curFieldInfo.fieldShowName" placeholder="属性名"/>
         </el-form-item>
         <el-form-item label="属性名" prop="fieldName">
           <el-input ref="fieldName" v-model="curFieldInfo.fieldName" placeholder="属性名"/>
@@ -46,7 +52,7 @@
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="saveField">保存</el-button>
+          <el-button type="primary" @click="doAddField">保存</el-button>
         </el-form-item>
       </el-form>
     </el-dialog>
@@ -68,15 +74,27 @@
     </el-dialog>
 
     <!-- 右键关联实体 dialog-->
-    <el-dialog v-el-drag-dialog width="20%" center :visible.sync="contextmenuRelationEntityDialogVisible" title="关联实体">
-      <el-form ref="relationEntityForm" :inline="false" :model="needRelationEntity" :rules="needRelationEntityRules">
+    <el-dialog v-el-drag-dialog width="40%" center :visible.sync="contextmenuRelationEntityDialogVisible" title="关联实体">
+      <el-form ref="relationEntityForm" :inline="false" :model="needRelationEntity" :rules="needRelationEntityRules"
+               label-width="120px">
         <el-form-item label="当前实体名" prop="curEntityName">
           {{curClickNodeData.name}}
         </el-form-item>
+        <el-form-item label="关联展示名" prop="relationShowName">
+          <el-input v-model="needRelationEntity.relationShowName" placeholder="关联展示名"/>
+        </el-form-item>
+        <el-form-item label="关联属性名" prop="relationName">
+          <el-input v-model="needRelationEntity.relationName" placeholder="关联属性名<数据库关联用>"/>
+        </el-form-item>
         <el-form-item label="关联实体" prop="relationEntityName">
           <el-select v-model="needRelationEntity.relationEntityName" placeholder="关联实体">
-            <el-option v-for="entity in entityList" :label="entity.entityName" :value="entity.entityName"/>
+            <el-option v-for="entity in entityList" v-if="entity.entityName != needRelationEntity.curEntityName"
+                       :label="entity.entityName"
+                       :value="entity.entityName"/>
           </el-select>
+        </el-form-item>
+        <el-form-item label="关联描述" prop="relationDescription">
+          <el-input v-model="needRelationEntity.relationDescription" type="textarea"/>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" style="width: 100%" @click="doRelationEntity">关联</el-button>
@@ -89,20 +107,20 @@
       <el-form ref="entityBehaviorForm" :inline="false" :model="entityBehavior" :rules="entityBehaviorRules"
                label-width="120px">
         <el-form-item label="当前实体名:" prop="curEntityName">
-          {{curClickNodeData.name}}
+          {{entityBehavior.curEntityName}}
         </el-form-item>
         <el-form-item label="行为展示名:" prop="behaviorShowName">
           <el-input v-model="entityBehavior.behaviorShowName" placeholder="行为展示名"/>
         </el-form-item>
-        <el-form-item label="行为方法名:" prop="behaviorMethodName">
+        <el-form-item label="方法名:" prop="behaviorMethodName">
           <el-input v-model="entityBehavior.behaviorMethodName" placeholder="行为方法名"/>
         </el-form-item>
         <!-- 方法参数列表-->
         <el-form-item label="方法参数列表:" prop="behaviorMethodName">
-          <el-button type="success" size="mini">添加</el-button>
+          <el-button type="success" size="mini" @click="addArg">添加</el-button>
           <el-table
             :data="entityBehavior.argArr"
-            highlight-current-row="true"
+            :highlight-current-row=true
             border
             style="width: 100%" size="mini">
             <el-table-column
@@ -131,19 +149,39 @@
           </el-table>
         </el-form-item>
 
-        <el-form-item label="行为方法返回值类型:" prop="behaviorMethodReturnType">
-          <el-input v-model="entityBehavior.behaviorMethodReturnType" placeholder="行为方法返回值类型"/>
+        <el-form-item label="方法返回值类型:" prop="behaviorMethodReturnType">
+          <el-input v-model="entityBehavior.behaviorMethodReturnType" placeholder="方法返回值类型"/>
         </el-form-item>
         <el-form-item label="行为描述:" prop="behaviorDescription">
           <el-input v-model="entityBehavior.behaviorDescription" type="textarea"/>
         </el-form-item>
         <el-form-item label="行为关联实体:" prop="relationEntityName">
           <el-select v-model="entityBehavior.relationEntityName" placeholder="关联实体">
-            <el-option v-for="entity in entityList" :label="entity.entityName" :value="entity.entityName"/>
+            <el-option v-for="entity in entityList" v-if="entity.entityName != entityBehavior.curEntityName"
+                       :label="entity.entityName" :value="entity.entityName"/>
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="doRelationEntity">确定</el-button>
+          <el-button type="primary" @click="doAddEntityBehavior">确定</el-button>
+        </el-form-item>
+      </el-form>
+    </el-dialog>
+
+    <!--右键添加方法参数-->
+    <el-dialog v-el-drag-dialog width="40%" center :visible.sync="methodArgDialogVisible" title="方法参数">
+      <el-form ref="relationEntityForm" :inline="false" :model="methodArg" :rules="methodArgRules"
+               label-width="120px">
+        <el-form-item label="参数名" prop="argName">
+          <el-input v-model="methodArg.argName" placeholder="参数名"/>
+        </el-form-item>
+        <el-form-item label="参数类型" prop="argType">
+          <el-input v-model="methodArg.argType" placeholder="参数类型"/>
+        </el-form-item>
+        <el-form-item label="关联描述" prop="argDescription">
+          <el-input v-model="methodArg.argDescription" type="textarea"/>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" style="width: 100%" @click="doAddArg">确定</el-button>
         </el-form-item>
       </el-form>
     </el-dialog>
@@ -157,10 +195,18 @@
   import echarts from 'echarts'
 
   let defaultEntitySize = 50
-  let defaultFieldSize = 20
+  let defaultBehaviorSize = 35
+  let defaultRelationSize = 25
+  let defaultFieldSize = 15
   let chartDatas = [{
     name: 'test1',
     value: 'test1',
+    draggable: true,
+    symbolSize: defaultEntitySize
+  }, {
+    name: 'test2',
+    value: 'test2',
+    draggable: true,
     symbolSize: defaultEntitySize
   }]
   let chartLinks = []
@@ -189,8 +235,9 @@
 
         },
         force: {
-          repulsion: 300,
-          edgeLength: 300
+          repulsion: 400,
+          gravity: 0.1,
+          edgeLength: [100, 500]
         }
       }
     ]
@@ -201,23 +248,21 @@
     directives: { elDragDialog },
     data() {
       return {
-        entityList: [{
-          entityName: 'test1',
-          value: 'test1',
-          draggable: true,
-          symbolSize: defaultEntitySize
-        }],
+        entityList: [{ entityName: 'test1', entityDescription: null },
+          { entityName: 'test2', entityDescription: null }],
         fieldList: [],
+        relationList: [],
+        behaviorList: [],
 
         //添加实体
         addEntityDialogVisible: false,
         entityRules: {},
-        curEntityInfo: { entityName: null, entityDescription: null, relationEntity: null },
+        curEntityInfo: { entityName: null, entityShowName: null, entityDescription: null },
 
         //添加属性
         addFieldDialogVisible: false,
         fieldRules: {},
-        curFieldInfo: { fieldName: null, fieldDescription: null, fieldType: 1, entityName: null },
+        curFieldInfo: { fieldName: null, fieldShowName: null, fieldDescription: null, fieldType: 1, entityName: null },
         fieldTypeList: constant.fieldTypeList,
 
         //右键操作选择
@@ -226,13 +271,21 @@
 
         //右键关联实体
         contextmenuRelationEntityDialogVisible: false,
-        needRelationEntity: { relationEntityName: null },
+        needRelationEntity: {
+          curEntityName: null,
+          relationEntityName: null,
+          relationName: null,
+          relationShowName: null,
+          relationDescription: null
+        },
         needRelationEntityRules: {},
 
         //右键新增实体行为
         contextmenuEntityBehaviorDialogVisible: false,
         //实体行为
         entityBehavior: {
+          //当前实体名
+          curEntityName: null,
           //行为关联实体名字
           relationEntityName: null,
           //展示名
@@ -246,7 +299,15 @@
           //行为描述
           behaviorDescription: null
         },
-        entityBehaviorRules: {}
+        entityBehaviorRules: {},
+        //添加方法参数
+        methodArgDialogVisible: false,
+        methodArg: {
+          argName: null,
+          argType: null,
+          argDescription: null
+        },
+        methodArgRules: {}
       }
     },
     mounted() {
@@ -262,74 +323,143 @@
         this.curClickNodeData = data
         this.contextmenuDialogVisible = true
       })
-    },
+    }
+    ,
     methods: {
       addEntity() {
         commonUtils.clearObject(this.curEntityInfo)
         this.addEntityDialogVisible = true
-      },
+      }
+      ,
       saveEntity() {
         let entity = {}
         Object.assign(entity, this.curEntityInfo)
-        let graphEntity = {
-          name: entity.entityName,
-          value: entity.entityName,
+        //添加到实体结点
+        this.entityList.push(entity)
+        this.updateChart([{
+          name: entity.entityShowName,
+          value: entity,
           type: 'entity',
           symbolSize: defaultEntitySize,
           draggable: true,
           itemStyle: {
             color: '#dc153e'
           }
-        }
-        //添加到实体结点
-        this.entityList.push(entity)
-        //添加echarts并刷新图表
-        chartDatas.push(graphEntity)
-        //如果有关联实体则添加关联
-        if (entity.relationEntity) {
-          chartLinks.push({ source: entity.entityName, target: entity.relationEntity })
-        }
-        charts.setOption(option)
+        }], [])
         this.addEntityDialogVisible = false
-      },
+      }
+      ,
       relationEntity() {
+        commonUtils.clearObject(this.needRelationEntity)
+        this.needRelationEntity.curEntityName = this.curClickNodeData.name
         this.contextmenuRelationEntityDialogVisible = true
-      },
+      }
+      ,
       doRelationEntity() {
-
-      },
+        let relation = {}
+        Object.assign(relation, this.needRelationEntity)
+        //保存关系结点
+        this.relationList.push(relation)
+        this.updateChart([{
+          name: relation.relationShowName,
+          value: relation,
+          type: 'relation',
+          symbolSize: defaultRelationSize,
+          draggable: true,
+          itemStyle: {
+            color: '#dc840c'
+          }
+        }], [{
+          source: relation.curEntityName,
+          target: relation.relationShowName
+        }, {
+          source: relation.relationEntityName,
+          target: relation.relationShowName
+        }])
+        this.contextmenuRelationEntityDialogVisible = false
+      }
+      ,
       addEntityBehavior() {
+        commonUtils.clearObject(this.entityBehavior)
+        this.entityBehavior.curEntityName = this.curClickNodeData.name
         this.contextmenuEntityBehaviorDialogVisible = true
-      },
+      }
+      ,
       doAddEntityBehavior() {
-
-      },
+        let behavior = {}
+        Object.assign(behavior, this.entityBehavior)
+        //保存行为结点
+        this.behaviorList.push(behavior)
+        this.updateChart([{
+          name: behavior.behaviorShowName,
+          value: behavior,
+          type: 'behavior',
+          symbolSize: defaultBehaviorSize,
+          draggable: true,
+          itemStyle: {
+            color: '#dc2c9a'
+          }
+        }], [{
+          source: behavior.curEntityName,
+          target: behavior.behaviorShowName
+        }, {
+          source: behavior.relationEntityName,
+          target: behavior.behaviorShowName
+        }])
+        this.contextmenuEntityBehaviorDialogVisible = false
+      }
+      ,
       addField() {
         commonUtils.clearObject(this.curFieldInfo)
         this.curFieldInfo.entityName = this.curClickNodeData.name
         this.addFieldDialogVisible = true
-      },
-      saveField() {
+      }
+      ,
+      doAddField() {
         let field = {}
         Object.assign(field, this.curFieldInfo)
-        let graphField = {
-          name: field.fieldName,
-          value: field.fieldName,
+        //添加到实体列表
+        this.fieldList.push(field)
+        this.updateChart([{
+          name: field.fieldShowName,
+          value: field,
           symbolSize: defaultFieldSize,
           draggable: true,
           type: 'field',
           itemStyle: {
-            color: '#dca12f'
+            color: '#26dc3b'
+          }
+        }], [{ source: field.fieldShowName, target: field.entityName }])
+        this.addFieldDialogVisible = false
+      }
+      ,
+      addArg() {
+        this.methodArgDialogVisible = true
+      }
+      ,
+      doAddArg() {
+        this.entityBehavior.argArr.push(this.methodArg)
+        this.methodArgDialogVisible = false
+      }
+      ,
+      updateChart(dataArr, linkArr) {
+        debugger
+        let flag = false
+        if (dataArr && dataArr instanceof Array) {
+          for (let data of dataArr) {
+            flag = true
+            chartDatas.push(data)
           }
         }
-        //添加到实体列表
-        this.fieldList.push(field)
-        //添加echarts结点
-        chartDatas.push(graphField)
-        //添加属性与实体的关联
-        chartLinks.push({ source: field.fieldName, target: field.entityName })
-        charts.setOption(option)
-        this.addFieldDialogVisible = false
+        if (linkArr && linkArr instanceof Array) {
+          for (let link of linkArr) {
+            flag = true
+            chartLinks.push(link)
+          }
+        }
+        if (flag) {
+          charts.setOption(option)
+        }
       }
     }
   }
